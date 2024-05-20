@@ -1,0 +1,158 @@
+---
+title: "Final Exam Data Prep" 
+author: "Lauren Shelby" 
+date: "2024-05-02" 
+output:
+  html_document:
+    df_print: paged
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(tidyverse)
+library(caret)
+```
+
+Part 1: Data Pre-processing 
+
+```{r}
+data <- read.csv("PimaIndiansDiabetes.csv")
+head(data)
+```
+```{r}
+# Converting the categorical variable outcome to a factor
+data$Outcome <- as.factor(data$Outcome)
+```
+
+Part 2: Box/Bar Plots
+
+```{r}
+# Making the appropriate boxplots or bar plots to predict which of the individual variables are most helpful in predicting the outcome 
+
+# First calculating the standard deviation of the values in each column with numeric data
+pregnancies_sd <- sd(data$Pregnancies)
+glucose_sd <- sd(data$Glucose)
+bp_sd <- sd(data$BloodPressure)
+st_sd<- sd(data$SkinThickness)
+insulin_sd <- sd(data$Insulin)
+bmi_sd <- sd(data$BMI)
+dpf_sd<- sd(data$DiabetesPedigreeFunction)
+age_sd <- sd(data$Age)
+
+# Initializing an empty data frame to hold all of the normalized values 
+
+data_norm <- matrix(nrow = nrow(data), ncol = 9)
+
+data_norm <- data.frame(data_norm)
+colnames(data_norm) <- c("Pregnancies", "Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI", "DiabetesPedigreeFunction", "Age", "Outcome")
+
+# Now creating a loop that makes a new column with the normalized value of data points in each numeric column
+
+for (i in 1:nrow(data)) {
+   
+  data_norm$Pregnancies[i] <- (data$Pregnancies[i] - mean(data$Pregnancies))/pregnancies_sd
+   
+  data_norm$Glucose[i] <- (data$Glucose[i] - mean(data$Glucose))/glucose_sd
+   
+  data_norm$BloodPressure[i] <- (data$BloodPressure[i] - mean(data$BloodPressure))/bp_sd
+   
+  data_norm$SkinThickness[i] <- (data$SkinThickness[i] - mean(data$SkinThickness))/st_sd
+  
+  data_norm$Insulin[i] <- (data$Insulin[i] - mean(data$Insulin))/insulin_sd
+  
+  data_norm$BMI[i] <- (data$BMI[i] - mean(data$BMI))/bmi_sd
+  
+  data_norm$DiabetesPedigreeFunction[i] <- (data$DiabetesPedigreeFunction[i] - mean(data$DiabetesPedigreeFunction))/dpf_sd
+  
+  data_norm$Age[i] <- (data$Age[i] - mean(data$Age))/age_sd
+}
+
+data_norm$Outcome <- data$Outcome
+
+head(data_norm)
+
+```
+
+```{r}
+# Performing a normalization of the data to create the subsequent box plots of the data 
+data_norm <- data_norm %>% 
+  pivot_longer(cols = c(Pregnancies, Glucose, BloodPressure, SkinThickness, Insulin, BMI, DiabetesPedigreeFunction, Age), names_to = "Attribute", values_to = "NormalizedValue") 
+head(data_norm)
+```
+```{r}
+# Creating the box plot from the transformed normalized data values 
+ggplot(data_norm, aes(x=Attribute, y=NormalizedValue, fill=Outcome)) + 
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Part 3: Imputing Values 
+
+```{r}
+# Imputing the values that are 0 in the skin thickness, blood pressure, BMI, and insulin columns using a Random Forest algorithm with the missForest package. 
+
+# Load the missForest package
+library(missForest)
+
+# Specifying columns to impute
+columns_to_impute <- c("SkinThickness", "BloodPressure", "BMI", "Insulin")
+
+# Subsetting the dataset to include only the specified columns
+data_to_impute <- data[columns_to_impute]
+
+# Replacing the 0's in the columns to impute to NA for imputation with missForest
+for (i in 1:nrow(data_to_impute)) {
+  for (j in 1:ncol(data_to_impute)){
+    if (data_to_impute[i,j] == 0) {
+      data_to_impute[i,j] <- NA
+    }
+  }
+}
+
+head(data_to_impute)
+
+# Impute missing values with missForest
+imputed_data <- missForest(data_to_impute)
+
+# Access the imputed dataset
+imputed_dataset <- imputed_data$ximp
+
+# Replace imputed columns in the original dataset with imputed values
+data[columns_to_impute] <- imputed_dataset
+head(data)
+```
+
+Part 4: Scaling the data with min-max scalar normalization 
+
+```{r}
+# Min-max scaling function
+min_max_scaler <- function(data) {
+  scaled_data <- data
+  for (i in 1:nrow(data)) {
+    for (j in 1:ncol(data)) {
+      if (is.factor(data[i,j]) == T) {
+        next
+      }
+      else {
+        newval <- (data[i,j] - min(data[,j])) / (max(data[,j]) - min(data[,j]))
+      scaled_data[i,j] <- newval
+      }
+    }
+  }
+  return(scaled_data)
+}
+
+# Apply min-max scaling to each column of the dataset
+scaled_data <- min_max_scaler(data)
+
+head(scaled_data)
+```
+
+
+
+
+
+

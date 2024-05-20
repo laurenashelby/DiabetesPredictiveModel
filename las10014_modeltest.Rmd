@@ -1,0 +1,187 @@
+---
+title: "Final Exam Model Building" 
+author: "Lauren Shelby" 
+date: "2024-05-02" 
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(pROC)
+```
+
+Part 5: Building the Model 
+
+I will be using leave-out-30% to tune my parameters 
+
+```{r}
+# Randomly separating 30% of the data and saving it as the test_set, and 70% of the data and saving it as the training_set 
+
+# Calculate the number of rows in the original data frame
+num_rows <- nrow(scaled_data)
+
+# Calculate the number of rows for the training set (70%)
+train_rows <- round(0.7 * num_rows)
+
+# Randomly select row indices for the training set
+train_indices <- sample(1:num_rows, train_rows, replace = FALSE)
+
+# Create training set by selecting rows using the indices
+training_set <- scaled_data[train_indices, ]
+
+# Create test set by excluding rows used in the training set
+test_set <- scaled_data[-train_indices, ]
+
+# Calculating if the sets are 70 and 30% 
+print(nrow(training_set)/nrow(scaled_data))
+print(nrow(test_set)/nrow(scaled_data))
+```
+
+
+I will be using SVM and randomForest to perform my modeling, then I will compare using the AUC score. I will be trying out multiple values for m in randomForest and multiple values for c in SVM to determine the most accurate model. 
+
+Random Forest: 
+
+```{r}
+# Making the Outcome column into a numeric for ROC object 
+training_set$Outcome <- as.numeric(training_set$Outcome)
+test_set$Outcome <- as.numeric(test_set$Outcome)
+
+# Using randomForest() to generate a random forest with an m value of 10 to predict Outcome from the desired columns 
+# We use the importance=T to tell which variables are the most important to the prediction
+rf = randomForest(Outcome ~ Pregnancies + Glucose + DiabetesPedigreeFunction + Age + SkinThickness + BloodPressure + BMI + Insulin, 
+                       data=training_set, mtry=100, importance=T)
+rf
+
+
+
+# Calculating the AUC for random forest 
+# Using test_set to create the ROC object to calculate AUC for the random forest
+
+rf.resp = predict(rf, newdata=test_set, type="response")
+
+auc_value1 <- auc(roc(test_set$Outcome, rf.resp))
+
+print(paste("AUC:", auc_value1))
+```
+
+```{r}
+# Using randomForest() to generate a random forest with an m value of 5 to predict Outcome from the desired columns 
+# We use the importance=T to tell which variables are the most important to the prediction
+rf2 = randomForest(Outcome ~ Pregnancies + Glucose + DiabetesPedigreeFunction + Age + SkinThickness + BloodPressure + BMI + Insulin, 
+                       data=training_set, mtry=50, importance=T)
+rf2
+
+
+
+# Calculating the AUC for random forest 
+# Using test_set to create the ROC object to calculate AUC for the random forest
+
+rf2.resp = predict(rf2, newdata=test_set, type="response")
+
+auc_value2 <- auc(roc(test_set$Outcome, rf2.resp))
+
+print(paste("AUC:", auc_value2))
+```
+
+
+```{r}
+# Using randomForest() to generate a random forest with an m value of 1 to predict Outcome from the desired columns 
+# We use the importance=T to tell which variables are the most important to the prediction
+rf3 = randomForest(Outcome ~ Pregnancies + Glucose + DiabetesPedigreeFunction + Age + SkinThickness + BloodPressure + BMI + Insulin, 
+                       data=training_set, mtry=10, importance=T)
+rf3
+
+
+
+# Calculating the AUC for random forest 
+# Using test_set to create the ROC object to calculate AUC for the random forest
+
+rf3.resp = predict(rf3, newdata=test_set, type="response")
+
+auc_value3 <- auc(roc(test_set$Outcome, rf3.resp))
+
+print(paste("AUC:", auc_value3))
+```
+There is no clear winner among the randomForest models, they all have basically the same AUC values so they are all the same level of accuracy. 
+
+
+SVM: 
+
+```{r, echo=FALSE}
+library(e1071)
+
+# Making the Outcome column a factor for SVM 
+training_set$Outcome <- as.factor(training_set$Outcome)
+test_set$Outcome <- as.factor(test_set$Outcome)
+```
+
+```{r}
+#Building the SVM model with C value 100 
+training.svm <- svm(Outcome ~ Pregnancies + Glucose + DiabetesPedigreeFunction + Age + SkinThickness + BloodPressure + BMI + Insulin,
+                    data = training_set, kernel="linear", cost=100, probability=T)
+
+#Testing the model 
+svm.pred.prob = predict(training.svm, test_set, 
+                             probability=T)
+table(svm.pred.prob,test_set$Outcome)
+
+# Storing probabilities in attribute result 
+pred.prob.mat = attr(svm.pred.prob, "probabilities")
+
+#Getting the AUC for the model 
+auc_value4 = auc(roc(predictor = pred.prob.mat[,2], test_set$Outcome))
+print(paste("AUC:", auc_value4))
+```
+
+```{r}
+#Building the SVM model with C value 50 
+training.svm <- svm(Outcome ~ Pregnancies + Glucose + DiabetesPedigreeFunction + Age + SkinThickness + BloodPressure + BMI + Insulin,
+                    data = training_set, kernel="linear", cost=50, probability=T)
+
+#Testing the model 
+svm.pred.prob = predict(training.svm, test_set, 
+                             probability=T)
+table(svm.pred.prob,test_set$Outcome)
+
+# Storing probabilities in attribute result 
+pred.prob.mat = attr(svm.pred.prob, "probabilities")
+
+#Getting the AUC for the model 
+auc_value5 = auc(roc(predictor = pred.prob.mat[,2], test_set$Outcome))
+print(paste("AUC:", auc_value5))
+```
+
+```{r}
+#Building the SVM model with C value 10 
+training.svm <- svm(Outcome ~ Pregnancies + Glucose + DiabetesPedigreeFunction + Age + SkinThickness + BloodPressure + BMI + Insulin,
+                    data = training_set, kernel="linear", cost=10, probability=T)
+
+#Testing the model 
+svm.pred.prob = predict(training.svm, test_set, 
+                             probability=T)
+table(svm.pred.prob,test_set$Outcome)
+
+# Storing probabilities in attribute result 
+pred.prob.mat = attr(svm.pred.prob, "probabilities")
+
+#Getting the AUC for the model 
+auc_value6 = auc(roc(predictor = pred.prob.mat[,2], test_set$Outcome))
+print(paste("AUC:", auc_value6))
+```
+All of the SVM models essentially give the same AUC, which indicates they are all the same level of accurate in predicting the model. 
+
+Overall, the SVM model is slightly more consistent and more accurate than the randomForest model, so I will be saving the SVM model into an RDS file. 
+
+```{r}
+# Saving object to an RDS file
+saveRDS(training.svm, file = "las10014_SVMmodel.rds")
+```
+
+
